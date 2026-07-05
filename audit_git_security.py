@@ -28,7 +28,9 @@ SECRET_CONTENT_PATTERNS = (
     re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),
-    re.compile(r"(?i)(?:password|secret|token|api[_-]?key)\s*[:=]\s*(?:['\"][^'\"]+['\"]|[^\r\n#]+)"),
+    re.compile(
+        r"(?i)(?:password|secret|token|api[_-]?key)\s*[:=]\s*(?:\"(?:\\.|[^\"\\])+\"|'(?:\\.|[^'\\])+'|[^\r\n#]+)"
+    ),
 )
 
 

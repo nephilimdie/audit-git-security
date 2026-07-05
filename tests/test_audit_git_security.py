@@ -64,6 +64,14 @@ class AuditGitSecurityTests(unittest.TestCase):
         issues = audit_repo(repo)
         self.assertTrue(any(issue.check == "secret-content" for issue in issues))
 
+    def test_detects_escaped_quotes_inside_quoted_values(self) -> None:
+        repo = self.make_repo()
+        line_parts = ["pass", "word", ' = "', 'value with \\"quotes\\" inside', '"\n']
+        (repo / "config.txt").write_text("".join(line_parts), encoding="utf-8")
+        git(repo, "add", "config.txt")
+        issues = audit_repo(repo)
+        self.assertTrue(any(issue.check == "secret-content" for issue in issues))
+
 
 if __name__ == "__main__":
     unittest.main()
