@@ -13,8 +13,12 @@ def git(repo: Path, *args: str) -> None:
 
 
 class AuditGitSecurityTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dirs: list[tempfile.TemporaryDirectory[str]] = []
+
     def make_repo(self) -> Path:
         temp_dir = tempfile.TemporaryDirectory()
+        self.temp_dirs.append(temp_dir)
         self.addCleanup(temp_dir.cleanup)
         repo = Path(temp_dir.name)
         git(repo, "init")

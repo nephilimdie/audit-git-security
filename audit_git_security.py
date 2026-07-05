@@ -52,7 +52,8 @@ def run_git(repo_path: Path, *args: str, allow_failure: bool = False) -> str:
     if result.returncode != 0:
         if allow_failure:
             return result.stdout
-        raise ValueError(result.stderr.strip() or "git command failed")
+        error = result.stderr.strip() or result.stdout.strip() or "git command failed"
+        raise ValueError(f"git {' '.join(args)} failed: {error}")
     return result.stdout
 
 
