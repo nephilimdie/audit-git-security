@@ -22,11 +22,13 @@ SECRET_FILE_PATTERNS = (
     "credentials",
 )
 
+MAX_TEXT_FILE_SIZE = 1024 * 1024
+
 SECRET_CONTENT_PATTERNS = (
     re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),
-    re.compile(r"(?i)(?:password|secret|token|api[_-]?key)\s*[:=]\s*['\"]?[^\s'\"]+"),
+    re.compile(r"(?i)(?:password|secret|token|api[_-]?key)\s*[:=]\s*(?:['\"][^'\"]+['\"]|[^\r\n#]+)"),
 )
 
 
@@ -122,7 +124,7 @@ def audit_repo(repo_path: Path) -> list[Issue]:
         except OSError:
             continue
 
-        if looks_binary(content) or len(content) > 1024 * 1024:
+        if looks_binary(content) or len(content) > MAX_TEXT_FILE_SIZE:
             continue
 
         text = content.decode("utf-8", errors="ignore")

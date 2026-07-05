@@ -30,6 +30,7 @@ class AuditGitSecurityTests(unittest.TestCase):
         repo = self.make_repo()
         (repo / "README.md").write_text("# demo\n", encoding="utf-8")
         git(repo, "add", "README.md")
+        git(repo, "commit", "-m", "Add readme")
         self.assertEqual(audit_repo(repo), [])
 
     def test_detects_insecure_http_remote(self) -> None:
@@ -46,12 +47,22 @@ class AuditGitSecurityTests(unittest.TestCase):
 
     def test_detects_sensitive_tracked_files_and_contents(self) -> None:
         repo = self.make_repo()
-        (repo / ".env").write_text("API_KEY=ghp_abcdefghijklmnopqrstuvwxyz123456\n", encoding="utf-8")
+        marker = "ghp_" + "abcdefghijklmnopqrstuvwxyz123456"
+        env_name = "_".join(["API", "KEY"])
+        (repo / ".env").write_text(f"{env_name}={marker}\n", encoding="utf-8")
         git(repo, "add", ".env")
         issues = audit_repo(repo)
         checks = {issue.check for issue in issues}
         self.assertIn("tracked-secret-file", checks)
         self.assertIn("secret-content", checks)
+
+    def test_detects_quoted_secret_values_with_spaces(self) -> None:
+        repo = self.make_repo()
+        line_parts = ["pass", "word", ' = "', "multi word secret", '"\n']
+        (repo / "config.txt").write_text("".join(line_parts), encoding="utf-8")
+        git(repo, "add", "config.txt")
+        issues = audit_repo(repo)
+        self.assertTrue(any(issue.check == "secret-content" for issue in issues))
 
 
 if __name__ == "__main__":
