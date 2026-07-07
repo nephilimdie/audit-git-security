@@ -4,6 +4,42 @@ set -u
 set -o pipefail
 
 TIMESTAMP="$(date +"%Y%m%d-%H%M%S")"
+TARGET_PATH="${1:-.}"
+
+usage() {
+  cat <<'EOF'
+Usage: audit-git-security.sh [path]
+
+Audit the Git repository containing path.
+If path is omitted, the current directory is used.
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ "$#" -gt 1 ]]; then
+  usage
+  exit 2
+fi
+
+if [[ ! -d "$TARGET_PATH" ]]; then
+  echo "ERRORE: path non trovato o non è una cartella: $TARGET_PATH"
+  exit 1
+fi
+
+cd "$TARGET_PATH" || exit 1
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "ERRORE: il path indicato non è dentro un repository Git: $TARGET_PATH"
+  exit 1
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
 REPORT_DIR="audit-results/security-audit-${TIMESTAMP}"
 mkdir -p "$REPORT_DIR"
 
@@ -13,14 +49,6 @@ echo "# Git Security Audit Report" > "$SUMMARY"
 echo "" >> "$SUMMARY"
 echo "Generated at: ${TIMESTAMP}" >> "$SUMMARY"
 echo "" >> "$SUMMARY"
-
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "ERRORE: esegui questo script dentro un repository Git."
-  exit 1
-fi
-
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT" || exit 1
 
 echo "Repository: $REPO_ROOT"
 echo "Report dir: $REPORT_DIR"
@@ -208,22 +236,22 @@ echo ""
 run_section \
   "Suspicious files in Git history" \
   "$REPORT_DIR/suspicious-files-history.txt" \
-  bash -lc "git rev-list --objects --all | grep -Ei '(^|/)(\\.env($|\\.)|.*\\.(pem|key|p12|pfx|jks|keystore|sqlite|db|sql|dump|bak|backup|kdbx)$|.*(secret|credential|credentials|password|passwd).*)' || true"
+  bash -c "git rev-list --objects --all | grep -Ei '(^|/)(\\.env($|\\.)|.*\\.(pem|key|p12|pfx|jks|keystore|sqlite|db|sql|dump|bak|backup|kdbx)$|.*(secret|credential|credentials|password|passwd).*)' || true"
 
 run_section \
   "Sensitive file commits" \
   "$REPORT_DIR/sensitive-file-commits.txt" \
-  bash -lc "git log --all --name-only --pretty=format:'commit %H %ad %an' --date=iso -- .env '.env.*' '*.pem' '*.key' '*.p12' '*.pfx' '*.jks' '*.keystore' '*.sqlite' '*.db' '*.sql' '*.dump' '*.bak' '*backup*' '*secret*' '*credential*' '*password*' '*passwd*' 2>/dev/null || true"
+  bash -c "git log --all --name-only --pretty=format:'commit %H %ad %an' --date=iso -- .env '.env.*' '*.pem' '*.key' '*.p12' '*.pfx' '*.jks' '*.keystore' '*.sqlite' '*.db' '*.sql' '*.dump' '*.bak' '*backup*' '*secret*' '*credential*' '*password*' '*passwd*' 2>/dev/null || true"
 
 run_section \
   "Current suspicious files" \
   "$REPORT_DIR/suspicious-files-current.txt" \
-  bash -lc "find . -path './.git' -prune -o -path './.venv' -prune -o -path './node_modules' -prune -o -path './vendor' -prune -o -path './audit-results' -prune -o -path './.pytest_cache' -prune -o -path './benchmark/results' -prune -o -type f | grep -Ei '(^|/)(\\.env($|\\.)|.*\\.(pem|key|p12|pfx|jks|keystore|sqlite|db|sql|dump|bak|backup|kdbx)$|.*(secret|credential|credentials|password|passwd).*)' || true"
+  bash -c "find . -path './.git' -prune -o -path './.venv' -prune -o -path './node_modules' -prune -o -path './vendor' -prune -o -path './audit-results' -prune -o -path './.pytest_cache' -prune -o -path './benchmark/results' -prune -o -type f | grep -Ei '(^|/)(\\.env($|\\.)|.*\\.(pem|key|p12|pfx|jks|keystore|sqlite|db|sql|dump|bak|backup|kdbx)$|.*(secret|credential|credentials|password|passwd).*)' || true"
 
 run_section \
   "Git ignored safety check" \
   "$REPORT_DIR/gitignore-check.txt" \
-  bash -lc "echo 'Checking .gitignore for common sensitive patterns'; echo; grep -nE '(^|/)(\\.env|\\.env\\.|audit-results|\\.pem|\\.key|\\.sqlite|\\.db|\\.sql|dump|backup)' .gitignore 2>/dev/null || true; echo; echo 'git check-ignore results:'; git check-ignore -v .env .env.local .env.production audit-results 2>/dev/null || true"
+  bash -c "echo 'Checking .gitignore for common sensitive patterns'; echo; grep -nE '(^|/)(\\.env|\\.env\\.|audit-results|\\.pem|\\.key|\\.sqlite|\\.db|\\.sql|dump|backup)' .gitignore 2>/dev/null || true; echo; echo 'git check-ignore results:'; git check-ignore -v .env .env.local .env.production audit-results 2>/dev/null || true"
 
 if command -v gitleaks >/dev/null 2>&1; then
   echo "==> Running Gitleaks full history scan"
